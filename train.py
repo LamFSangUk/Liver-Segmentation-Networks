@@ -21,7 +21,9 @@ def train(model,
           data_loader,
           criterion,
           optimizer,
-          device):
+          scheduler,
+          device,
+          args):
 
     global min_loss
     total_loss = 0.0
@@ -74,15 +76,20 @@ def train(model,
             'epoch': epoch,
             'net': model.state_dict()
         }
-        torch.save(state, os.path.join('.', "best.pth"))
+        torch.save(state, os.path.join(args.model_save_path, "best.pth"))
 
         min_loss = total_loss
+
+    scheduler.step(total_loss)
 
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
+    parser.add_argument('--model_save_path',
+                        default='E:/Data/INFINITT/Models',
+                        help='Directory path to save model checkpoints')
 
     args = parser.parse_args()
 
@@ -98,7 +105,9 @@ def main():
     criterion = nn.NLLLoss().to(device)
 
     # optimizer
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.SGD(model.parameters(), lr=0.1)
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-8)
 
     train_ds = AbdomenDataset("liver",
                               128, 128, 64,
@@ -106,13 +115,15 @@ def main():
                               path_label_dir="E:/Data/INFINITT/Integrated/train/label")
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True)
 
-    for epoch in range(100):
+    for epoch in range(500):
         train(model,
               epoch,
               train_loader,
               criterion,
               optimizer,
-              device)
+              scheduler,
+              device,
+              args)
 
 
 if __name__ == "__main__":
