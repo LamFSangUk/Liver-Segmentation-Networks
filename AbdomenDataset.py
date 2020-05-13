@@ -46,39 +46,69 @@ class AbdomenDataset(Dataset):
         assert(len(self.paths_image) == len(self.paths_label))
         self.n_data = len(self.paths_image)
 
+        # Load images and resize them.
+        self.image_stack = np.empty((0, depth, height, width))
+        self.label_stack = np.empty((0, depth, height, width))
+
+        for i in range(len(self.paths_image)):
+            # shape will be (H, W, D)
+            nib_image_file = nib.load(self.paths_image[i])
+            image = nib_image_file.get_data()
+            label = nib.load(self.paths_label[i]).get_data()
+
+            # Reshape to (D, H, W)
+            image = image.transpose((-1, 0, 1))
+            label = label.transpose((-1, 0, 1))
+
+            image = resize(image.astype(float), self.shape)
+            label = resize(label.astype(int), self.shape, anti_aliasing=False, order=0, preserve_range=True)
+
+            image = image.astype(np.float32)
+            label = label.astype(np.uint8)
+
+            # choose an organ
+            label = (label == self.label_num[self.organ])
+
+            # Save to stacks
+            self.image_stack = np.vstack((self.image_stack, np.expand_dims(image, axis=0)))
+            self.label_stack = np.vstack((self.label_stack, np.expand_dims(label, axis=0)))
+
+        self.label_mean = np.mean(self.label_stack)
+
+        print("Data Loaded")
+        print()
+
     def __len__(self):
         return self.n_data
 
     def __getitem__(self, item):
-        # shape will be (H, W, D)
-        nib_image_file = nib.load(self.paths_image[item])
-        image = nib_image_file.get_data()
-        label = nib.load(self.paths_label[item]).get_data()
+        # # shape will be (H, W, D)
+        # nib_image_file = nib.load(self.paths_image[item])
+        # image = nib_image_file.get_data()
+        # label = nib.load(self.paths_label[item]).get_data()
+        #
+        # # Reshape to (D, H, W)
+        # image = image.transpose((-1, 0, 1))
+        # label = label.transpose((-1, 0, 1))
+        #
+        # image = resize(image.astype(float), self.shape)
+        # label = resize(label.astype(int), self.shape, anti_aliasing=False, order=0, preserve_range=True)
+        #
+        # image = image.astype(np.float32)
+        # label = label.astype(np.uint8)
+        #
+        # # choose an organ
+        # label = (label == self.label_num[self.organ])
+        #
 
-        # Reshape to (D, H, W)
-        image = image.transpose((-1, 0, 1))
-        label = label.transpose((-1, 0, 1))
-
-        image = resize(image.astype(float), self.shape)
-        label = resize(label.astype(int), self.shape, anti_aliasing=False, order=0, preserve_range=True)
-
-        image = image.astype(np.float32)
-        label = label.astype(np.uint8)
-
-        # choose an organ
-        label = (label == self.label_num[self.organ])
-
-        # nii_img = nib.Nifti1Image(label.transpose((1, 2, 0)), nib_image_file.affine, nib_image_file.header)
-        # nib.save(nii_img, "temp.nii")
-
-        sample = {'image': image, 'label': label}
+        sample = {'image': self.image_stack[item], 'label': self.label_stack[item]}
 
         return sample
 
 if __name__=="__main__":
-    ds = AbdomenDataset(128,128,64,
-                   path_image_dir="E:/Data/INFINITT/Integrated/img",
-                   path_label_dir="E:/Data/INFINITT/Integrated/label")
+    ds = AbdomenDataset("liver", 128,128,64,
+                   path_image_dir="E:/Data/INFINITT/Integrated/train/img",
+                   path_label_dir="E:/Data/INFINITT/Integrated/train/label")
 
     for data in ds:
         pass

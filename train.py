@@ -3,12 +3,16 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
+import numpy as np
+
 import os
 
 import argparse
 from argparse import RawTextHelpFormatter
 
 from networks.Vnet import Vnet
+from networks.VoxResNet import VoxResNet
+from DiceLoss import DiceLoss
 
 from AbdomenDataset import AbdomenDataset
 
@@ -34,12 +38,22 @@ def train(model,
 
     for batch_idx, data in enumerate(data_loader):
         imgs = data['image'].to(device)
+        imgs = imgs.float()
         imgs = imgs.unsqueeze(1)
 
         labels = data['label'].to(device)
         labels = torch.flatten(labels)
-        # labels = labels.unsqueeze(0).view((2, -1))
         labels = labels.type(torch.int64)
+
+        # Calculate weights
+        target_mean = data_loader.dataset.label_mean
+        bg_weights = target_mean / (1. + target_mean)
+        fg_weight = 1. - bg_weights
+        class_weights = torch.from_numpy(np.array([bg_weights, fg_weight]))
+        class_weights = class_weights.to(device)
+
+        print(labels.shape)
+        print(labels)
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -47,7 +61,16 @@ def train(model,
         # Get output of model
         out = model(imgs)
 
-        loss = criterion(out, labels)
+        print(out.shape)
+        print(labels.shape)
+
+        # Loss calculation
+        # NLL loss
+        loss = F.nll_loss(out, labels, weight=class_weights)
+
+        # Dice loss
+        # labels = F.one_hot(labels, num_classes=2)
+        # loss = DiceLoss(out, labels, weight=class_weights)
 
         loss.backward()
         optimizer.step()
@@ -96,26 +119,34 @@ def main():
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device('cuda' if args.cuda else 'cpu')
 
-    model = Vnet()
+    # criterion
+    criterion = nn.NLLLoss().to(device)
+    # criterion = DiceLoss.apply
+    # criterion = DiceLoss()
+
+    # Vnet
+    # model = Vnet()
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+
+    # VoxResNet
+    model = VoxResNet(in_channels=1, n_classes=2)
+    optimizer = optim.Adam(model.parameters(), lr=1e-7)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+
     model.to(device)
 
     model = nn.DataParallel(model).to(device)
-
-    # criterion
-    criterion = nn.NLLLoss().to(device)
-
-    # optimizer
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
-
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-8)
 
     train_ds = AbdomenDataset("liver",
                               128, 128, 64,
                               path_image_dir="E:/Data/INFINITT/Integrated/train/img",
                               path_label_dir="E:/Data/INFINITT/Integrated/train/label")
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
+                                               num_workers=6,
+                                               pin_memory=True)
 
-    for epoch in range(500):
+    for epoch in range(100):
         train(model,
               epoch,
               train_loader,

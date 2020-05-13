@@ -5,6 +5,9 @@ class ActFunc(nn.Module):
     def __init__(self, activation, **kwargs):
         super(ActFunc, self).__init__()
 
+        if 'num_paramenters' not in kwargs:
+            kwargs['num_parameters'] = 1
+
         self.activation_function = nn.ModuleDict([
             ['ReLU', nn.ReLU()],
             ['PReLU', nn.PReLU(kwargs['num_parameters'])],

@@ -67,7 +67,7 @@ class OutputTransition(nn.Module):
         # make channels the last axis
         out = out.permute(0, 2, 3, 4, 1).contiguous()
         out = out.view(out.numel() // 2, 2)
-        out = self.softmax(out)
+        out = self.softmax(out, dim=1)
 
         # treat channel 0 as the predicted output
         return out

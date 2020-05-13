@@ -11,6 +11,8 @@ import numpy as np
 import os
 
 from networks.Vnet import Vnet
+from networks.VoxResNet import VoxResNet
+
 
 from AbdomenDataset import AbdomenDataset
 
@@ -25,10 +27,15 @@ def inference(model,
     cnt = 0
     for data in data_loader:
         imgs = data['image'].to(device)
+        imgs = imgs.float()
         imgs = imgs.unsqueeze(1)
+        print(imgs.shape)
 
         output = model(imgs)
+        print(output)
         _, output = output.max(1)
+        print(output)
+        print(np.unique(output.cpu().numpy()))
 
         output = output.view((64, 128, 128))
         output = output.cpu().numpy()
@@ -52,19 +59,21 @@ def main():
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device('cuda' if args.cuda else 'cpu')
 
-    model = Vnet()
+    # model = Vnet()
+    model = VoxResNet(in_channels=1, n_classes=2)
     model.to(device)
 
     model = nn.DataParallel(model).to(device)
 
-    checkpoint = torch.load('./best.pth')
+    checkpoint = torch.load('E:/Data/INFINITT/Models/best.pth')
     model.load_state_dict(checkpoint['net'], strict=False)
 
     test_ds = AbdomenDataset("liver",
                              128, 128, 64,
                              path_image_dir="E:/Data/INFINITT/Integrated/test/img",
                              path_label_dir="E:/Data/INFINITT/Integrated/test/label")
-    test_loader = torch.utils.data.DataLoader(test_ds, batch_size=1, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(test_ds, batch_size=1, shuffle=False,
+                                              num_workers=1)
 
     inference(model,
               test_loader,
