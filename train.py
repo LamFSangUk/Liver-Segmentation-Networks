@@ -10,11 +10,7 @@ import os
 import argparse
 from argparse import RawTextHelpFormatter
 
-from networks.Vnet import Vnet
-from networks.VoxResNet import VoxResNet
-from DiceLoss import DiceLoss
-
-from AbdomenDataset import AbdomenDataset
+import midl
 
 # define min loss for finding best model
 min_loss = float("inf")
@@ -49,7 +45,7 @@ def train(model,
         target_mean = data_loader.dataset.label_mean
         bg_weights = target_mean / (1. + target_mean)
         fg_weight = 1. - bg_weights
-        class_weights = torch.from_numpy(np.array([bg_weights, fg_weight]))
+        class_weights = torch.from_numpy(np.array([bg_weights, fg_weight])).float()
         class_weights = class_weights.to(device)
 
         print(labels.shape)
@@ -66,11 +62,11 @@ def train(model,
 
         # Loss calculation
         # NLL loss
-        loss = F.nll_loss(out, labels, weight=class_weights)
+        # loss = F.nll_loss(out, labels, weight=class_weights)
 
         # Dice loss
-        # labels = F.one_hot(labels, num_classes=2)
-        # loss = DiceLoss(out, labels, weight=class_weights)
+        labels = F.one_hot(labels, num_classes=2)
+        loss = midl.layers.losses.DiceLoss(weight=class_weights)(out, labels)
 
         loss.backward()
         optimizer.step()
@@ -125,20 +121,20 @@ def main():
     # criterion = DiceLoss()
 
     # Vnet
-    # model = Vnet()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    # model = midl.networks.Vnet()
+    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
-    model = VoxResNet(in_channels=1, n_classes=2)
-    optimizer = optim.Adam(model.parameters(), lr=1e-7)
+    model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     model.to(device)
 
     model = nn.DataParallel(model).to(device)
 
-    train_ds = AbdomenDataset("liver",
+    train_ds = midl.ds.AbdomenDataset("liver",
                               128, 128, 64,
                               path_image_dir="E:/Data/INFINITT/Integrated/train/img",
                               path_label_dir="E:/Data/INFINITT/Integrated/train/label")

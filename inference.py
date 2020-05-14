@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -10,11 +9,10 @@ import numpy as np
 
 import os
 
-from networks.Vnet import Vnet
-from networks.VoxResNet import VoxResNet
+from midl.networks.VoxResNet import VoxResNet
 
 
-from AbdomenDataset import AbdomenDataset
+from midl.ds.AbdomenDataset import AbdomenDataset
 
 
 def inference(model,
@@ -26,6 +24,8 @@ def inference(model,
 
     cnt = 0
     for data in data_loader:
+        filename = data['name'][0]
+
         imgs = data['image'].to(device)
         imgs = imgs.float()
         imgs = imgs.unsqueeze(1)
@@ -43,7 +43,7 @@ def inference(model,
         output = output.astype(np.uint8)
 
         res = nib.Nifti1Image(output, np.eye(4))
-        nib.save(res, os.path.join(args.path_res, '%d.nii.gz'%cnt))
+        nib.save(res, os.path.join(args.path_res, '%s'%filename))
 
         cnt += 1
 
@@ -52,15 +52,19 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/Vnet')
+    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/VoxResNet')
 
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device('cuda' if args.cuda else 'cpu')
 
+    # Vnet
     # model = Vnet()
+
+    # VoxResNet
     model = VoxResNet(in_channels=1, n_classes=2)
+
     model.to(device)
 
     model = nn.DataParallel(model).to(device)
@@ -79,7 +83,6 @@ def main():
               test_loader,
               device,
               args)
-
 
 if __name__ == "__main__":
     main()

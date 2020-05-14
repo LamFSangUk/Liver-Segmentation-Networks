@@ -1,3 +1,4 @@
+import os
 import glob
 import nibabel as nib
 from torch.utils.data import Dataset
@@ -16,7 +17,7 @@ class AbdomenDataset(Dataset):
                  path_image_dir,
                  path_label_dir):
         """
-
+        AbdomenDataset is a dataset including abdomen images.
         :param path_image: Directory path for images
         :param path_label: Directory path for labels
         """
@@ -50,7 +51,11 @@ class AbdomenDataset(Dataset):
         self.image_stack = np.empty((0, depth, height, width))
         self.label_stack = np.empty((0, depth, height, width))
 
+        # Save filename list
+        self.filename = []
+
         for i in range(len(self.paths_image)):
+            self.filename.append(os.path.basename(self.paths_image[i]))
             # shape will be (H, W, D)
             nib_image_file = nib.load(self.paths_image[i])
             image = nib_image_file.get_data()
@@ -101,7 +106,9 @@ class AbdomenDataset(Dataset):
         # label = (label == self.label_num[self.organ])
         #
 
-        sample = {'image': self.image_stack[item], 'label': self.label_stack[item]}
+        sample = {'image': self.image_stack[item],
+                  'label': self.label_stack[item],
+                  'name': self.filename[item]}
 
         return sample
 

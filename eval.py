@@ -70,6 +70,6 @@ if __name__ == "__main__":
     # print(dsc)
 
     evaluated = eval(path_gt_dir='E:/Data/INFINITT/Integrated/test/label',
-                     path_pred_dir='E:/Data/INFINITT/Results/Vnet',
+                     path_pred_dir='E:/Data/INFINITT/Results/VoxResNet',
                      metric=DSC)
     print("Final:", evaluated)
