@@ -9,10 +9,9 @@ import numpy as np
 
 import os
 
-from midl.networks.VoxResNet import VoxResNet
+import pickle
 
-
-from midl.ds.AbdomenDataset import AbdomenDataset
+import midl
 
 
 def inference(model,
@@ -60,10 +59,10 @@ def main():
     device = torch.device('cuda' if args.cuda else 'cpu')
 
     # Vnet
-    # model = Vnet()
+    model = midl.networks.Vnet()
 
     # VoxResNet
-    model = VoxResNet(in_channels=1, n_classes=2)
+    # model = VoxResNet(in_channels=1, n_classes=2)
 
     model.to(device)
 
@@ -72,10 +71,12 @@ def main():
     checkpoint = torch.load('E:/Data/INFINITT/Models/best.pth')
     model.load_state_dict(checkpoint['net'], strict=False)
 
-    test_ds = AbdomenDataset("liver",
-                             128, 128, 64,
-                             path_image_dir="E:/Data/INFINITT/Integrated/test/img",
-                             path_label_dir="E:/Data/INFINITT/Integrated/test/label")
+    # test_ds = AbdomenDataset("liver",
+    #                          128, 128, 64,
+    #                          path_image_dir="E:/Data/INFINITT/Integrated/test/img",
+    #                          path_label_dir="E:/Data/INFINITT/Integrated/test/label")
+    with open("./utils/test_ds", "rb") as f:
+        test_ds = pickle.load(f)
     test_loader = torch.utils.data.DataLoader(test_ds, batch_size=1, shuffle=False,
                                               num_workers=1)
 

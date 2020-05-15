@@ -3,12 +3,16 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
+from torch.utils.tensorboard import SummaryWriter
+
 import numpy as np
 
 import os
 
 import argparse
 from argparse import RawTextHelpFormatter
+
+import pickle
 
 import midl
 
@@ -22,6 +26,7 @@ def train(model,
           criterion,
           optimizer,
           scheduler,
+          writer,
           device,
           args):
 
@@ -48,17 +53,13 @@ def train(model,
         class_weights = torch.from_numpy(np.array([bg_weights, fg_weight])).float()
         class_weights = class_weights.to(device)
 
-        print(labels.shape)
-        print(labels)
-
         # zero the parameter gradients
         optimizer.zero_grad()
 
         # Get output of model
         out = model(imgs)
 
-        print(out.shape)
-        print(labels.shape)
+        print(out)
 
         # Loss calculation
         # NLL loss
@@ -89,7 +90,19 @@ def train(model,
     print("Total Loss: %f"  % total_loss)
     print()
 
+    # Logging with tensorboard
+    writer.add_scalars("Loss/train", {
+        "loss": total_loss,
+    }, epoch+1)
+
     # Save checkpoint
+    if epoch % 10 == 0:
+        state = {
+            'epoch': epoch,
+            'net': model.state_dict()
+        }
+        torch.save(state, os.path.join(args.model_save_path, "model-%d.pth"%epoch))
+
     if total_loss < min_loss:
         state = {
             'epoch': epoch,
@@ -121,36 +134,45 @@ def main():
     # criterion = DiceLoss()
 
     # Vnet
-    # model = midl.networks.Vnet()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    model = midl.networks.Vnet()
+    optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
-    model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     model.to(device)
 
     model = nn.DataParallel(model).to(device)
 
-    train_ds = midl.ds.AbdomenDataset("liver",
-                              128, 128, 64,
-                              path_image_dir="E:/Data/INFINITT/Integrated/train/img",
-                              path_label_dir="E:/Data/INFINITT/Integrated/train/label")
+    # train_ds = midl.ds.AbdomenDataset("liver",
+    #                           128, 128, 64,
+    #                           path_image_dir="E:/Data/INFINITT/Integrated/train/img",
+    #                           path_label_dir="E:/Data/INFINITT/Integrated/train/label")
+    with open("./utils/train_ds", "rb") as f:
+        train_ds = pickle.load(f)
+
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 
-    for epoch in range(100):
+    # Tensorboard Logging
+    writer = SummaryWriter('E:/Data/INFINITT/logs')
+
+    for epoch in range(300):
         train(model,
               epoch,
               train_loader,
               criterion,
               optimizer,
               scheduler,
+              writer,
               device,
               args)
+
+    writer.close()
 
 
 if __name__ == "__main__":
