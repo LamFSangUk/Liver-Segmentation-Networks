@@ -1,12 +1,17 @@
-import numpy as np
-from skimage.transform import resize
 import nibabel as nib
 import glob
 import re
+import numpy as np
+
+from skimage.transform import resize
+from scipy.ndimage.morphology import distance_transform_edt, binary_erosion, generate_binary_structure
+
 
 def DSC(gt, pred):
     """
-    Calculate dice similarity score
+    Dice Similarity Score
+
+    Compute dice similarity score
     :param gt:
     :param pred:
     :return:
@@ -15,8 +20,104 @@ def DSC(gt, pred):
     return dsc
 
 
-def HD():
-    pass
+def HD(result, reference, connectivity=1):
+    """
+    Hausdorff Distance
+
+    Compute
+    :return:
+    """
+    hd1 = surface_distance(result, reference).max()
+    hd2 = surface_distance(reference, result).max()
+    hd = max(hd1, hd2)
+
+    return hd
+
+
+def HD95(result, reference, connectivity=1):
+    hd1 = surface_distance(result, reference)
+    hd2 = surface_distance(reference, result)
+    hd95 = np.percentile(np.hstack((hd1, hd2)), 95)
+
+    return hd95
+
+
+def ASSD(result, reference, connectivity=1):
+    """
+    Average Symmetric Surface Distance
+    :return:
+    """
+    assd = np.mean( (ASD(result, reference, connectivity), ASD(reference, result, connectivity)) )
+
+    return assd
+
+
+def ASD(result, reference, connectivity=1):
+    """
+    Average Surface Distance
+    :param result:
+    :param reference:
+    :param connectivity:
+    :return:
+    """
+    sds = surface_distance(result, reference, connectivity)
+    asd = sds.mean()
+
+    return asd
+
+
+def sensitivity(result, reference):
+    result = result.astype(np.bool)
+    reference = reference.astype(np.bool)
+
+    tp = np.count_nonzero(result & reference)
+    fn = np.count_nonzero(~result & reference)
+
+    try:
+        r = tp / float(tp + fn)
+    except ZeroDivisionError:
+        r = 0.0
+
+    return r
+
+
+def precision(result, reference):
+    result = result.astype(np.bool)
+    reference = reference.astype(np.bool)
+
+    tp = np.count_nonzero(result & reference)
+    fp = np.count_nonzero(result & ~reference)
+
+    try:
+        p = tp / float(tp + fp)
+    except ZeroDivisionError:
+        p = 0.0
+
+    return p
+
+
+def surface_distance(result, reference, connectivity=1):
+    result = result.astype(np.bool)
+    reference = reference.astype(np.bool)
+
+    # Create binary structure
+    struct = generate_binary_structure(result.ndim, connectivity)
+
+    # Test for empty images
+    if np.count_nonzero(result) == 0:
+        raise RuntimeError('The result image does not contain any binary object.')
+    if np.count_nonzero(reference) == 0:
+        raise RuntimeError('The reference image does not contain any binary object.')
+
+    # Extract border images
+    result_border = result ^ binary_erosion(result, structure=struct)
+    reference_border = reference ^ binary_erosion(reference, structure=struct)
+
+    # Compute average surface distance
+    dt = distance_transform_edt(~reference_border)
+    sds = dt[result_border]
+
+    return sds
 
 
 def eval(path_gt_dir,
@@ -68,8 +169,27 @@ if __name__ == "__main__":
     #
     # dsc = DSC(gt, pred)
     # print(dsc)
+    path_gt_dir = 'E:/Data/INFINITT/Integrated/test/label'
+    path_pred_dir = 'E:/Data/INFINITT/Results/VoxResNet'
 
-    evaluated = eval(path_gt_dir='E:/Data/INFINITT/Integrated/test/label',
-                     path_pred_dir='E:/Data/INFINITT/Results/VoxResNet',
-                     metric=DSC)
-    print("Final:", evaluated)
+    eval_dsc    = eval(path_gt_dir=path_gt_dir,
+                       path_pred_dir=path_pred_dir,
+                       metric=DSC)
+    eval_hd     = eval(path_gt_dir=path_gt_dir,
+                       path_pred_dir=path_pred_dir,
+                       metric=HD95)
+    eval_assd   = eval(path_gt_dir=path_gt_dir,
+                       path_pred_dir=path_pred_dir,
+                       metric=ASSD)
+    eval_s      = eval(path_gt_dir=path_gt_dir,
+                       path_pred_dir=path_pred_dir,
+                       metric=sensitivity)
+    eval_p      = eval(path_gt_dir=path_gt_dir,
+                       path_pred_dir=path_pred_dir,
+                       metric=precision)
+    print("DSC:", eval_dsc)
+    print("HD:", eval_hd)
+    print("ASSD:", eval_assd)
+    print("Sensitivity:", eval_s)
+    print("Precision:", eval_p)
+
