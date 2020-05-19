@@ -51,7 +51,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/VoxResNet')
+    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/TestNet')
 
     args = parser.parse_args()
 
@@ -59,10 +59,16 @@ def main():
     device = torch.device('cuda' if args.cuda else 'cpu')
 
     # Vnet
-    model = midl.networks.Vnet()
+    # model = midl.networks.Vnet()
 
     # VoxResNet
-    # model = VoxResNet(in_channels=1, n_classes=2)
+    # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+
+    # DenseVNet
+    # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
+
+    # TestNet
+    model = midl.networks.TestNet()
 
     model.to(device)
 

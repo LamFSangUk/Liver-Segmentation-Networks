@@ -133,15 +133,25 @@ def main():
     # criterion = DiceLoss.apply
     # criterion = DiceLoss()
 
-    # Vnet
-    model = midl.networks.Vnet()
-    optimizer = optim.Adam(model.parameters(), lr=1e-2)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    # VNet
+    # model = midl.networks.VNet()
+    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
     # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
     # optimizer = optim.Adam(model.parameters(), lr=1e-4)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+
+    # DenseVNet
+    # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+
+    # TestNet
+    model = midl.networks.TestNet()
+    optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     model.to(device)
 
@@ -154,14 +164,14 @@ def main():
     with open("./utils/train_ds", "rb") as f:
         train_ds = pickle.load(f)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=2, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 
     # Tensorboard Logging
     writer = SummaryWriter('E:/Data/INFINITT/logs')
 
-    for epoch in range(300):
+    for epoch in range(500):
         train(model,
               epoch,
               train_loader,

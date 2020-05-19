@@ -3,6 +3,30 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from midl.layers.ActFunc import ActFunc
+from midl.layers.AttentionGate import AttentionGate
+
+from midl.layers.Densenet.DenseBlockCompressed import DenseBlockCompressed as DenseBlock
+
+class DenseLayer(nn.Module):
+    def __init__(self, in_channels, growth_channels, drop_rate):
+        super(DenseLayer, self).__init__()
+
+        self.conv = nn.Conv3d(in_channels=in_channels,
+                              out_channels=growth_channels,
+                              kernel_size=3,
+                              stride=1,
+                              padding=1)
+        self.bn = nn.BatchNorm3d(growth_channels)
+        self.act = ActFunc('ReLU')
+
+        self.dropout = F.dropout3d
+        self.drop_rate = drop_rate
+
+    def forward(self, x):
+        out = self.act(self.bn(self.conv(x)))
+        out = self.dropout(out, p=self.drop_rate, training=self.training)
+
+        return torch.cat([x, out], 1)
 
 
 def _make_conv_layer(in_channels, n_convs):
@@ -78,12 +102,17 @@ class DownTransition(nn.Module):
         super(DownTransition, self).__init__()
 
         out_channels = 2 * in_channels
-        self.down_conv = nn.Conv3d(in_channels=in_channels, out_channels=out_channels, kernel_size=2, stride=2, bias=False)
-        self.bn1 = nn.BatchNorm3d(out_channels)
-        self.act1 = ActFunc('PReLU', num_parameters=out_channels)
+        self.down_conv = nn.Conv3d(in_channels=in_channels, out_channels=in_channels, kernel_size=2, stride=2, bias=False)
+        self.bn1 = nn.BatchNorm3d(in_channels)
+        self.act1 = ActFunc('PReLU', num_parameters=in_channels)
 
-        self.conv_block = _make_conv_layer(out_channels, n_convs)
-        self.act2 = ActFunc('PReLU', num_parameters=out_channels)
+        #self.conv_block = _make_conv_layer(out_channels, n_convs)
+        self.conv_block = DenseBlock(nb_layers=4,
+                                     in_channels=in_channels,
+                                     growth_rate=in_channels//4,
+                                     block=DenseLayer,
+                                     drop_rate=0)
+        # self.act2 = ActFunc('PReLU', num_parameters=out_channels)
 
 
     def forward(self, x):
@@ -92,8 +121,8 @@ class DownTransition(nn.Module):
         x = self.act1(x)
 
         out = self.conv_block(x)
-        out = out + x
-        out = self.act2(out)
+        out = torch.cat([x, out], dim=1)
+        # out = self.act2(out)
 
         return out
 
@@ -128,9 +157,9 @@ class UpTransition(nn.Module):
         return out
 
 
-class Vnet(nn.Module):
+class TestNet(nn.Module):
     def __init__(self):
-        super(Vnet, self).__init__()
+        super(TestNet, self).__init__()
 
         self.in_tr = InputTransition()
         self.down_tr32 = DownTransition(in_channels=16, n_convs=1)
@@ -143,16 +172,28 @@ class Vnet(nn.Module):
         self.up_tr32 = UpTransition(in_channels=64, out_channels=32, n_convs=1)
         self.out_tr = OutputTransition(in_channels=32)
 
+        self.attention1 = AttentionGate(in_channels=16, gating_channels=256, inter_channels=8)
+        self.attention2 = AttentionGate(in_channels=32, gating_channels=256, inter_channels=16)
+        self.attention3 = AttentionGate(in_channels=64, gating_channels=256, inter_channels=32)
+        self.attention4 = AttentionGate(in_channels=128, gating_channels=256, inter_channels=64)
+
+
     def forward(self, x):
         out16 = self.in_tr(x)
         out32 = self.down_tr32(out16)
         out64 = self.down_tr64(out32)
         out128 = self.down_tr128(out64)
         out256 = self.down_tr256(out128)
-        out = self.up_tr256(out256, out128)
-        out = self.up_tr128(out, out64)
-        out = self.up_tr64(out, out32)
-        out = self.up_tr32(out, out16)
+
+        g_out16 = self.attention1(out16, out256)
+        g_out32 = self.attention2(out32, out256)
+        g_out64 = self.attention3(out64, out256)
+        g_out128 = self.attention4(out128, out256)
+
+        out = self.up_tr256(out256, g_out128)
+        out = self.up_tr128(out, g_out64)
+        out = self.up_tr64(out, g_out32)
+        out = self.up_tr32(out, g_out16)
         out = self.out_tr(out)
 
         # Flatten result
@@ -162,7 +203,7 @@ class Vnet(nn.Module):
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = Vnet()
+    model = TestNet()
 
     model = model.to(device)
 

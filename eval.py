@@ -170,7 +170,7 @@ if __name__ == "__main__":
     # dsc = DSC(gt, pred)
     # print(dsc)
     path_gt_dir = 'E:/Data/INFINITT/Integrated/test/label'
-    path_pred_dir = 'E:/Data/INFINITT/Results/VoxResNet'
+    path_pred_dir = 'E:/Data/INFINITT/Results/TestNet'
 
     eval_dsc    = eval(path_gt_dir=path_gt_dir,
                        path_pred_dir=path_pred_dir,
