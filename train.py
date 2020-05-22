@@ -96,7 +96,7 @@ def train(model,
     }, epoch+1)
 
     # Save checkpoint
-    if epoch % 10 == 0:
+    if epoch % 20 == 0:
         state = {
             'epoch': epoch,
             'net': model.state_dict()
@@ -120,7 +120,7 @@ def main():
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--model_save_path',
-                        default='E:/Data/INFINITT/Models',
+                        default='E:/Data/INFINITT/Models/DenseVNet',
                         help='Directory path to save model checkpoints')
 
     args = parser.parse_args()
@@ -135,25 +135,27 @@ def main():
 
     # VNet
     # model = midl.networks.VNet()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=0.01)  # Adam
+    # optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.99, weight_decay=0.01) # SGD
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
     # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
+    # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # DenseVNet
-    # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
-
-    # TestNet
-    model = midl.networks.TestNet()
-    optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
-    model.to(device)
+    # TestNet
+    # model = midl.networks.TestNet()
+    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    #
+    # model.to(device)
 
     model = nn.DataParallel(model).to(device)
 
@@ -164,7 +166,7 @@ def main():
     with open("./utils/train_ds", "rb") as f:
         train_ds = pickle.load(f)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=2, shuffle=True,
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 
