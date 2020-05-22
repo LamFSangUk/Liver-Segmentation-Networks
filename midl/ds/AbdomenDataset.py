@@ -1,5 +1,8 @@
+import re
 import os
 import glob
+import random
+
 import nibabel as nib
 from torch.utils.data import Dataset
 from skimage.transform import resize
@@ -71,6 +74,10 @@ class AbdomenDataset(Dataset):
             image = image.transpose((-1, 0, 1))
             label = label.transpose((-1, 0, 1))
 
+            label_idx = int(re.sub('\D', '', os.path.basename(self.paths_label[i])))
+            if label_idx < 44:
+                label = label[::-1]
+
             image = resize(image.astype(float), self.shape)
             label = resize(label.astype(int), self.shape, anti_aliasing=False, order=0, preserve_range=True)
 
@@ -112,7 +119,13 @@ class AbdomenDataset(Dataset):
 
     def __getitem__(self, item):
 
-        sample = {'image': self.image_stack[item],
+        # Image augmentation
+        image = self.image_stack[item]
+
+        if random.SystemRandom().random() > 0.5:
+            pass
+
+        sample = {'image': image,
                   'label': self.label_stack[item],
                   'name': self.filename[item]}
 

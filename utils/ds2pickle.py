@@ -16,6 +16,8 @@ if __name__ == "__main__":
     #                             128, 128, 64,
     #                             path_image_dir="E:/Data/INFINITT/Integrated/train/img",
     #                             path_label_dir="E:/Data/INFINITT/Integrated/train/label")
+    # ds2pickle(ds, './train_ds')
+
 
     # Test DS
     ds = midl.ds.AbdomenDataset("liver",
