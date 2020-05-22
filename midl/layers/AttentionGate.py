@@ -3,6 +3,26 @@ import torch.nn as nn
 
 from midl.layers.ActFunc import ActFunc
 
+class GatingSignal(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=1):
+        super(GatingSignal, self).__init__()
+
+        self.conv = nn.Conv3d(in_channels=in_channels,
+                              out_channels=out_channels,
+                              kernel_size=kernel_size,
+                              stride=1,
+                              padding=0,
+                              bias=False)
+        self.bn = nn.BatchNorm3d(out_channels)
+        self.act = ActFunc("ReLU")
+
+    def forward(self, x):
+        out = self.conv(x)
+        out = self.bn(out)
+        out = self.act(out)
+        return out
+
+
 class AttentionGate(nn.Module):
     def __init__(self, in_channels, gating_channels, inter_channels):
         super(AttentionGate, self).__init__()
