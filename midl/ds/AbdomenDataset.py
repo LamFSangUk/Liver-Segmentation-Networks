@@ -7,9 +7,12 @@ import nibabel as nib
 from torch.utils.data import Dataset
 from skimage.transform import resize
 from skimage.exposure import equalize_adapthist
+import scipy.ndimage
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from midl.utils.image_processing import add_gaussian_noise, cutout, generate_random_rotation_matrix
 
 
 class AbdomenDataset(Dataset):
@@ -19,7 +22,8 @@ class AbdomenDataset(Dataset):
                  height,
                  depth,
                  path_image_dir,
-                 path_label_dir):
+                 path_label_dir,
+                 aug=False):
         """
         AbdomenDataset is a dataset including abdomen images.
         :param path_image: Directory path for images
@@ -47,6 +51,8 @@ class AbdomenDataset(Dataset):
         }
 
         self.organ = organ
+
+        self.aug = aug
 
         assert(len(self.paths_image) == len(self.paths_label))
         self.n_data = len(self.paths_image)
@@ -122,8 +128,17 @@ class AbdomenDataset(Dataset):
         # Image augmentation
         image = self.image_stack[item]
 
-        if random.SystemRandom().random() > 0.5:
-            pass
+        if self.aug:
+            if random.SystemRandom().random() > 0.5:
+                mat = generate_random_rotation_matrix((1, 0, 0), 20)
+                image = scipy.ndimage.affine_transform(image, matrix=mat)
+
+            if random.SystemRandom().random() > 0.3:
+                image = add_gaussian_noise(image)
+                image = (image - np.min(image)) / (np.max(image) - np.min(image))
+
+            if random.SystemRandom().random() > 0.5:
+                image = cutout(image)
 
         sample = {'image': image,
                   'label': self.label_stack[item],
@@ -133,9 +148,13 @@ class AbdomenDataset(Dataset):
 
 
 if __name__ == "__main__":
+
+    import nibabel as nib
     ds = AbdomenDataset("liver", 128,128,64,
-                   path_image_dir="E:/Data/INFINITT/Integrated/train/img",
-                   path_label_dir="E:/Data/INFINITT/Integrated/train/label")
+                   path_image_dir="E:/Data/INFINITT/Integrated/debug/img",
+                   path_label_dir="E:/Data/INFINITT/Integrated/debug/label")
 
     for data in ds:
-        pass
+        # res = nib.Nifti1Image(image.transpose((1, 2, 0)), np.eye(4))
+        res = nib.Nifti1Image(data['image'].transpose((1, 2, 0)), np.eye(4))
+        nib.save(res, os.path.join('.', '%s' % "test"))
