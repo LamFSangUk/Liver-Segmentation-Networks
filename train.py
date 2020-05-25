@@ -120,7 +120,7 @@ def main():
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
     parser.add_argument('--model_save_path',
-                        default='E:/Data/INFINITT/Models/DenseVNet',
+                        default='E:/Data/INFINITT/Models/VoxResNet',
                         help='Directory path to save model checkpoints')
 
     args = parser.parse_args()
@@ -146,9 +146,10 @@ def main():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # DenseVNet
-    model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
+    # # optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.01)
+    # optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.99, weight_decay=0.01)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # TestNet
     # model = midl.networks.TestNet()
@@ -156,6 +157,12 @@ def main():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
     #
     # model.to(device)
+
+    # VoxResNet_AG
+    model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
+    optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     model = nn.DataParallel(model).to(device)
 
@@ -166,7 +173,7 @@ def main():
     with open("./utils/train_ds", "rb") as f:
         train_ds = pickle.load(f)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=3, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 

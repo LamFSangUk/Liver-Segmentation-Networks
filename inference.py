@@ -51,7 +51,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 
     parser.add_argument('--no_cuda', action='store_true', default=False, help='disables CUDA training')
-    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/DenseVNet')
+    parser.add_argument('--path_res', default='E:/Data/INFINITT/Results/VoxResNet')
 
     args = parser.parse_args()
 
@@ -63,9 +63,11 @@ def main():
 
     # VoxResNet
     # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
+
 
     # DenseVNet
-    model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
+    # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
 
     # TestNet
     # model = midl.networks.TestNet()
@@ -74,7 +76,7 @@ def main():
 
     model = nn.DataParallel(model).to(device)
 
-    checkpoint = torch.load('E:/Data/INFINITT/Models/DenseVNet/best.pth')
+    checkpoint = torch.load('E:/Data/INFINITT/Models/VoxResNet/best.pth')
     model.load_state_dict(checkpoint['net'], strict=False)
 
     # test_ds = AbdomenDataset("liver",

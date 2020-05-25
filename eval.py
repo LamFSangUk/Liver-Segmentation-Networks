@@ -1,6 +1,7 @@
 import nibabel as nib
 import glob
 import re
+import os
 import numpy as np
 
 from skimage.transform import resize
@@ -141,13 +142,22 @@ def eval(path_gt_dir,
 
     val = 0
     for gt, pred in zip(gt_masks, pred_masks):
+        gt_file = gt
         print(gt)
         print(pred)
         gt = nib.load(gt).get_data()
         pred = nib.load(pred).get_data()
 
-        gt = resize(gt.astype(int), (128, 128, 64), anti_aliasing=False, order=0, preserve_range=True)
+        # Reshape to (D, H, W)
+        gt = gt.transpose((-1, 0, 1))
+        pred = pred.transpose((-1, 0, 1))
+
+        gt = resize(gt.astype(int), (64, 128, 128), anti_aliasing=False, order=0, preserve_range=True)
         gt = (gt == 6)
+
+        gt_idx = int(re.sub('\D', '', os.path.basename(gt_file)))
+        if gt_idx < 44:
+            gt = gt[::-1]
 
         similarity = metric(gt, pred)
         val += similarity
@@ -170,7 +180,7 @@ if __name__ == "__main__":
     # dsc = DSC(gt, pred)
     # print(dsc)
     path_gt_dir = 'E:/Data/INFINITT/Integrated/test/label'
-    path_pred_dir = 'E:/Data/INFINITT/Results/TestNet'
+    path_pred_dir = 'E:/Data/INFINITT/Results/VoxResNet'
 
     eval_dsc    = eval(path_gt_dir=path_gt_dir,
                        path_pred_dir=path_pred_dir,
