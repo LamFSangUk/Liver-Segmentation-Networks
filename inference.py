@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -28,12 +29,14 @@ def inference(model,
         imgs = data['image'].to(device)
         imgs = imgs.float()
         imgs = imgs.unsqueeze(1)
-        print(imgs.shape)
 
         output = model(imgs)
+        output = F.softmax(output, dim=1)
+
         print(output)
-        _, output = output.max(1)
-        print(output)
+        print(output.shape)
+        _, output = output.max(dim=1)
+        print(output.shape)
         print(np.unique(output.cpu().numpy()))
 
         output = output.view((64, 128, 128))
@@ -62,8 +65,8 @@ def main():
     # model = midl.networks.VNet()
 
     # VoxResNet
-    # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
-    model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
+    model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    # model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
 
 
     # DenseVNet
@@ -77,7 +80,7 @@ def main():
     model = nn.DataParallel(model).to(device)
 
     checkpoint = torch.load('E:/Data/INFINITT/Models/VoxResNet/best.pth')
-    model.load_state_dict(checkpoint['net'], strict=False)
+    model.load_state_dict(checkpoint['net'])
 
     # test_ds = AbdomenDataset("liver",
     #                          128, 128, 64,

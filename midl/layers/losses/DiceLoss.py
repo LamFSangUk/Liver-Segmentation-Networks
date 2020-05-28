@@ -87,33 +87,36 @@ https://github.com/mattmacy/vnet.pytorch/blob/master/train.py
 #         dice_loss = dsc_i.mean()
 #
 #         return dice_loss
+"""https://github.com/hubutui/DiceLoss-PyTorch/blob/master/loss.py"""
 class BinaryDiceLoss(nn.Module):
     def __init__(self, smooth=1):
         super(BinaryDiceLoss, self).__init__()
         self.smooth = smooth
 
     def forward(self, predict, target):
-        numerator = 2 * torch.sum(torch.mul(predict, target)) + self.smooth
-        denominator = torch.sum(torch.add(predict, target)) + self.smooth
+        predict = predict.contiguous().view(predict.shape[0], -1)
+        target = target.contiguous().view(target.shape[0], -1)
+
+        numerator = 2 * torch.sum(torch.mul(predict, target), dim=1) + self.smooth
+        denominator = torch.sum(torch.add(predict, target), dim=1) + self.smooth
 
         loss = 1 - numerator / denominator
 
-        return loss
+        return loss.mean()
 
 
 class DiceLoss(nn.Module):
-    def __init__(self, weight):
+    def __init__(self):
         super(DiceLoss, self).__init__()
-        self.weight = weight
 
-    def forward(self, predict, target):
+    def forward(self, predict, target, weight):
         assert(predict.shape == target.shape)
         dice = BinaryDiceLoss()
 
         total_loss = 0.0
         for i in range(target.shape[1]):
             dice_loss = dice(predict[:, i], target[:, i])
-            dice_loss *= self.weight[i]
+            dice_loss *= weight[i]
 
             total_loss += dice_loss
 

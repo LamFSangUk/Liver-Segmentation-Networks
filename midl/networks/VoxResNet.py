@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from midl.layers.ActFunc import ActFunc
+from midl.layers.losses import DiceLoss
 
 
 class VoxResModule(nn.Module):
@@ -98,12 +99,36 @@ class VoxResNet(nn.Module):
 
         out = c1 + c2 + c3 + c4
 
+        if self.training:
+            self.out_for_loss = [out, c1, c2, c3, c4]
+
         # make channels the last axis
-        out = out.permute(0, 2, 3, 4, 1).contiguous()
-        out = out.view(out.numel() // 2, 2)
-        out = self.softmax(out, dim=1)
+        # out = out.permute(0, 2, 3, 4, 1).contiguous()
+        # out = out.view(out.numel() // 2, 2)
+        # out = self.softmax(out, dim=1)
 
         return out
+
+    def compute_loss(self, target, weight=(1.0, 1.0)):
+        assert self.training is True
+
+        c0, c1, c2, c3, c4 = self.out_for_loss
+
+        c0 = self.softmax(c0, dim=1)
+        c1 = self.softmax(c1, dim=1)
+        c2 = self.softmax(c2, dim=1)
+        c3 = self.softmax(c3, dim=1)
+        c4 = self.softmax(c4, dim=1)
+
+        metric = DiceLoss()
+
+        loss = metric(c0, target, weight)
+        loss += metric(c1, target, weight)
+        loss += metric(c2, target, weight)
+        loss += metric(c3, target, weight)
+        loss += metric(c4, target, weight)
+
+        return loss
 
 
 if __name__=="__main__":

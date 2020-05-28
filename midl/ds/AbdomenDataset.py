@@ -127,11 +127,14 @@ class AbdomenDataset(Dataset):
 
         # Image augmentation
         image = self.image_stack[item]
+        label = self.label_stack[item]
 
         if self.aug:
             if random.SystemRandom().random() > 0.5:
                 mat = generate_random_rotation_matrix((1, 0, 0), 20)
                 image = scipy.ndimage.affine_transform(image, matrix=mat)
+                label = scipy.ndimage.affine_transform(label.astype(float), matrix=mat) > 0.5
+                label = label.astype(np.float64)
 
             if random.SystemRandom().random() > 0.3:
                 image = add_gaussian_noise(image)
@@ -141,7 +144,7 @@ class AbdomenDataset(Dataset):
                 image = cutout(image)
 
         sample = {'image': image,
-                  'label': self.label_stack[item],
+                  'label': label,
                   'name': self.filename[item]}
 
         return sample
@@ -156,5 +159,5 @@ if __name__ == "__main__":
 
     for data in ds:
         # res = nib.Nifti1Image(image.transpose((1, 2, 0)), np.eye(4))
-        res = nib.Nifti1Image(data['image'].transpose((1, 2, 0)), np.eye(4))
+        res = nib.Nifti1Image(data['label'].transpose((1, 2, 0)), np.eye(4))
         nib.save(res, os.path.join('.', '%s' % "test"))

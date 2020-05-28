@@ -43,8 +43,10 @@ def train(model,
         imgs = imgs.unsqueeze(1)
 
         labels = data['label'].to(device)
-        labels = torch.flatten(labels)
-        labels = labels.type(torch.int64)
+        # labels = torch.flatten(labels)
+        labels = labels.type(torch.long)
+        labels = F.one_hot(labels, num_classes=2)
+        labels = labels.permute(0, 4, 1, 2, 3).contiguous()
 
         # Calculate weights
         target_mean = data_loader.dataset.label_mean
@@ -59,15 +61,18 @@ def train(model,
         # Get output of model
         out = model(imgs)
 
-        print(out)
-
         # Loss calculation
         # NLL loss
         # loss = F.nll_loss(out, labels, weight=class_weights)
 
         # Dice loss
-        labels = F.one_hot(labels, num_classes=2)
-        loss = midl.layers.losses.DiceLoss(weight=class_weights)(out, labels)
+        # criterion = midl.layers.losses.DiceLoss(weight=class_weight).to(device)
+        # labels = F.one_hot(labels, num_classes=2)
+        # loss = criterion(out, labels)
+
+        # criterion = midl.layers.losses.DiceLoss().to(device)
+        # criterion = midl.layers.losses.CBLoss(n_classes=2, metric=dice).to(device)
+        loss = model.module.compute_loss(labels, class_weights)
 
         loss.backward()
         optimizer.step()
@@ -136,14 +141,14 @@ def main():
     # VNet
     # model = midl.networks.VNet()
     # optimizer = optim.Adam(model.parameters(), lr=1e-2, weight_decay=0.01)  # Adam
-    # optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.99, weight_decay=0.01) # SGD
+    # # optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.99, weight_decay=0.01) # SGD
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
-    # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
+    model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
     # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # DenseVNet
     # model = midl.networks.DenseVNet(in_channels=1, shape=(64, 128, 128), n_classes=2)
@@ -159,10 +164,10 @@ def main():
     # model.to(device)
 
     # VoxResNet_AG
-    model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
-    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
-    optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+    # model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
+    # # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
+    # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     model = nn.DataParallel(model).to(device)
 
@@ -170,10 +175,10 @@ def main():
     #                           128, 128, 64,
     #                           path_image_dir="E:/Data/INFINITT/Integrated/train/img",
     #                           path_label_dir="E:/Data/INFINITT/Integrated/train/label")
-    with open("./utils/train_ds", "rb") as f:
+    with open("./utils/train_aug_ds", "rb") as f:
         train_ds = pickle.load(f)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=3, shuffle=True,
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 
