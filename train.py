@@ -8,17 +8,16 @@ from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 
 import os
-
 import argparse
 from argparse import RawTextHelpFormatter
-
 import pickle
 
 import midl
+from eval import DSC
 
 # define min loss for finding best model
 min_loss = float("inf")
-
+best_acc = 0.0
 
 def train(model,
           epoch,
@@ -31,7 +30,9 @@ def train(model,
           args):
 
     global min_loss
+    global best_acc
     total_loss = 0.0
+    total_acc = 0.0
 
     print('\n==> epoch %d' % epoch)
 
@@ -45,8 +46,8 @@ def train(model,
         labels = data['label'].to(device)
         # labels = torch.flatten(labels)
         labels = labels.type(torch.long)
-        labels = F.one_hot(labels, num_classes=2)
-        labels = labels.permute(0, 4, 1, 2, 3).contiguous()
+        labels_one_hot = F.one_hot(labels, num_classes=2)
+        labels_one_hot = labels_one_hot.permute(0, 4, 1, 2, 3).contiguous()
 
         # Calculate weights
         target_mean = data_loader.dataset.label_mean
@@ -61,6 +62,14 @@ def train(model,
         # Get output of model
         out = model(imgs)
 
+        # Compute DSC
+        out = F.softmax(out, dim=1)
+        _, out = out.max(dim=1)
+
+        for i in range(out.shape[0]):
+            acc = DSC(labels[i].cpu().detach().numpy(), out[i].cpu().detach().numpy())
+            total_acc += acc
+
         # Loss calculation
         # NLL loss
         # loss = F.nll_loss(out, labels, weight=class_weights)
@@ -72,7 +81,7 @@ def train(model,
 
         # criterion = midl.layers.losses.DiceLoss().to(device)
         # criterion = midl.layers.losses.CBLoss(n_classes=2, metric=dice).to(device)
-        loss = model.module.compute_loss(labels, class_weights)
+        loss = model.module.compute_loss(labels_one_hot, class_weights)
 
         loss.backward()
         optimizer.step()
@@ -91,13 +100,16 @@ def train(model,
             bar
         ), end='')
 
+    total_acc = total_acc / len(data_loader.dataset)
     print()
     print("Total Loss: %f"  % total_loss)
+    print("Total ACC(DSC): %f" %total_acc)
     print()
 
     # Logging with tensorboard
     writer.add_scalars("Loss/train", {
         "loss": total_loss,
+        "acc": total_acc
     }, epoch+1)
 
     # Save checkpoint
@@ -116,6 +128,15 @@ def train(model,
         torch.save(state, os.path.join(args.model_save_path, "best.pth"))
 
         min_loss = total_loss
+
+    if total_acc > best_acc:
+        state = {
+            'epoch': epoch,
+            'net': model.state_dict()
+        }
+        torch.save(state, os.path.join(args.model_save_path, "best_acc.pth"))
+
+        best_acc = total_acc
 
     scheduler.step(total_loss)
 
@@ -157,11 +178,11 @@ def main():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # TestNet
-    # model = midl.networks.TestNet()
-    # optimizer = optim.Adam(model.parameters(), lr=1e-2)
+    # model = midl.networks.TestNet(in_channels=1, n_classes=2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
-    #
-    # model.to(device)
+
+    model.to(device)
 
     # VoxResNet_AG
     # model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)

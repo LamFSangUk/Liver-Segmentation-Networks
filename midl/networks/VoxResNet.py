@@ -102,11 +102,6 @@ class VoxResNet(nn.Module):
         if self.training:
             self.out_for_loss = [out, c1, c2, c3, c4]
 
-        # make channels the last axis
-        # out = out.permute(0, 2, 3, 4, 1).contiguous()
-        # out = out.view(out.numel() // 2, 2)
-        # out = self.softmax(out, dim=1)
-
         return out
 
     def compute_loss(self, target, weight=(1.0, 1.0)):
