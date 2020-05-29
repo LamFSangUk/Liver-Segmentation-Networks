@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from midl.layers.ActFunc import ActFunc
-
+from midl.layers.losses import DiceLoss
 
 def _make_conv_layer(in_channels, n_convs):
     layers = []
@@ -64,12 +64,6 @@ class OutputTransition(nn.Module):
 
         out = self.conv2(out)
 
-        # make channels the last axis
-        out = out.permute(0, 2, 3, 4, 1).contiguous()
-        out = out.view(out.numel() // 2, 2)
-        out = self.softmax(out, dim=1)
-
-        # treat channel 0 as the predicted output
         return out
 
 
@@ -155,9 +149,22 @@ class VNet(nn.Module):
         out = self.up_tr32(out, out16)
         out = self.out_tr(out)
 
-        # Flatten result
+        if self.training:
+            self.out_for_loss = out
+
         return out
 
+    def compute_loss(self, target, weight=(1.0, 1.0)):
+        assert self.training is True
+
+        out = self.out_for_loss
+        out = F.softmax(out, dim=1)
+
+        metric = DiceLoss()
+
+        loss = metric(out, target, weight)
+
+        return loss
 
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

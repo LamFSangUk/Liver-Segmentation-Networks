@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from midl.layers.ActFunc import ActFunc
 from midl.layers.Densenet.DenseBlockCompressed import DenseBlockCompressed as DenseBlock
+from midl.layers.losses import DiceLoss
 
 
 class ConvUnit(nn.Module):
@@ -168,13 +169,22 @@ class DenseVNet(nn.Module):
         print(prior.shape)
         out = out + prior
 
-        # make channels the last axis
-        out = out.permute(0, 2, 3, 4, 1).contiguous()
-        out = out.view(out.numel() // self.n_classes, self.n_classes)
-        out = self.softmax(out, dim=1)
+        if self.training:
+            self.out_for_loss = out
 
         return out
 
+    def compute_loss(self, target, weight=(1.0, 1.0)):
+        assert self.training is True
+
+        out = self.out_for_loss
+        out = F.softmax(out, dim=1)
+
+        metric = DiceLoss()
+
+        loss = metric(out, target, weight)
+
+        return loss
 
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
