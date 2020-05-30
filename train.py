@@ -108,9 +108,11 @@ def train(model,
 
     # Logging with tensorboard
     writer.add_scalars("Loss/train", {
-        "loss": total_loss,
-        "acc": total_acc
+        "loss": total_loss
     }, epoch+1)
+    writer.add_scalars("Acc/train", {
+        "acc": total_acc
+    }, epoch + 1)
 
     # Save checkpoint
     if epoch % 20 == 0:
@@ -166,7 +168,13 @@ def main():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
 
     # VoxResNet
-    model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    # model = midl.networks.VoxResNet(in_channels=1, n_classes=2)
+    # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
+    # # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
+
+    # VoxResNet_AG
+    model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
     optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
     # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
@@ -184,12 +192,6 @@ def main():
 
     model.to(device)
 
-    # VoxResNet_AG
-    # model = midl.networks.VoxResNet_AG(in_channels=1, n_classes=2)
-    # # optimizer = optim.Adam(model.parameters(), lr=1e-4, weight_decay=0.01)
-    # optimizer = optim.SGD(model.parameters(), lr=1e-4, momentum=0.99, weight_decay=0.01)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', 0.1, verbose=True, eps=1e-10)
-
     model = nn.DataParallel(model).to(device)
 
     # train_ds = midl.ds.AbdomenDataset("liver",
@@ -199,7 +201,7 @@ def main():
     with open("./utils/train_aug_ds", "rb") as f:
         train_ds = pickle.load(f)
 
-    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=4, shuffle=True,
+    train_loader = torch.utils.data.DataLoader(train_ds, batch_size=3, shuffle=True,
                                                num_workers=6,
                                                pin_memory=True)
 

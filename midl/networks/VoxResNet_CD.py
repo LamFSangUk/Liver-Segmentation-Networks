@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from midl.layers.ActFunc import ActFunc
-from midl.layers.AttentionGate import AttentionGate, GatingSignal
 from midl.layers.losses import DiceLoss
-
+from midl.layers.CutoutDropout import CutoutDropout
 
 class VoxResModule(nn.Module):
     def __init__(self, in_channels):
@@ -32,40 +31,41 @@ class VoxResModule(nn.Module):
         return out
 
 
-class VoxResNet_AG(nn.Module):
+class VoxResNet_CD(nn.Module):
     def __init__(self, in_channels, n_classes):
-        super(VoxResNet_AG, self).__init__()
+        super(VoxResNet_CD, self).__init__()
 
         self.conv1 = nn.Conv3d(in_channels=in_channels, out_channels=32, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm3d(32)
         self.act1 = ActFunc('ReLU')
+        self.dropout1 = CutoutDropout(p=0.2)
 
         self.conv2 = nn.Conv3d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm3d(32)
         self.act2 = ActFunc('ReLU')
+        self.dropout2 = CutoutDropout(p=0.2)
+
 
         self.conv3 = nn.Conv3d(in_channels=32, out_channels=64, kernel_size=3, padding=1, stride=2)
         self.mod1 = VoxResModule(in_channels=64)
         self.mod2 = VoxResModule(in_channels=64)
         self.bn3 = nn.BatchNorm3d(64)
         self.act3 = ActFunc('ReLU')
+        self.dropout3 = CutoutDropout(p=0.2)
+
 
         self.conv4 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1, stride=2)
         self.mod3 = VoxResModule(in_channels=64)
         self.mod4 = VoxResModule(in_channels=64)
         self.bn4 = nn.BatchNorm3d(64)
         self.act4 = ActFunc('ReLU')
+        self.dropout4 = CutoutDropout(p=0.2)
+
 
         self.conv5 = nn.Conv3d(in_channels=64, out_channels=64, kernel_size=3, padding=1, stride=2)
         self.mod5 = VoxResModule(in_channels=64)
         self.mod6 = VoxResModule(in_channels=64)
 
-        self.gs = GatingSignal(in_channels=64, out_channels=64)
-
-        self.attention1 = AttentionGate(in_channels=32, gating_channels=64, inter_channels=16)
-        self.attention2 = AttentionGate(in_channels=64, gating_channels=64, inter_channels=32)
-        self.attention3 = AttentionGate(in_channels=64, gating_channels=64, inter_channels=32)
-        self.attention4 = AttentionGate(in_channels=64, gating_channels=64, inter_channels=32)
 
         # Deconvolution layers
         self.deconv1 = nn.ConvTranspose3d(in_channels=32, out_channels=n_classes, kernel_size=3, stride=1, padding=1)
@@ -78,34 +78,31 @@ class VoxResNet_AG(nn.Module):
     def forward(self, x):
         out = self.conv1(x)
         out = self.act1(self.bn1(out))
+        out = self.dropout1(out, training=self.training)
 
         out = self.conv2(out)
         c1 = out
         out = self.act2(self.bn2(out))
+        out = self.dropout2(out, training=self.training)
 
         out = self.conv3(out)
         out = self.mod1(out)
         out = self.mod2(out)
         c2 = out
         out = self.act3(self.bn3(out))
+        out = self.dropout3(out, training=self.training)
 
         out = self.conv4(out)
         out = self.mod3(out)
         out = self.mod4(out)
         c3 = out
         out = self.act4(self.bn4(out))
+        out = self.dropout4(out, training=self.training)
 
         out = self.conv5(out)
         out = self.mod5(out)
         out = self.mod6(out)
         c4 = out
-
-        gating = self.gs(out)
-
-        c1 = self.attention1(c1, gating)
-        c2 = self.attention2(c2, gating)
-        c3 = self.attention3(c3, gating)
-        c4 = self.attention4(c4, gating)
 
         c1 = self.deconv1(c1)
         c2 = self.deconv2(c2)
@@ -144,7 +141,7 @@ class VoxResNet_AG(nn.Module):
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = VoxResNet_AG(in_channels=1, n_classes=2)
+    model = VoxResNet_CD(in_channels=1, n_classes=2)
 
     model = model.to(device)
 
