@@ -1,6 +1,9 @@
 import numpy as np
 import random
 import math
+import pycuda
+
+from scipy.stats import multivariate_normal
 
 
 def add_gaussian_noise(img):
@@ -56,3 +59,39 @@ def generate_random_rotation_matrix(axis, angle_range):
     angle = random.SystemRandom().random() * 2 * angle_range - angle_range
 
     return generate_rotation_matrix(axis, angle)
+
+
+def resize():
+    # TODO: Need to CUDA programming
+    pass
+
+
+def create_gaussian_heatmap(points, size, sigma=(1, 1, 1)):
+    # assert len(points.shape) == len(size.shape)
+
+    x = np.linspace(0, size[0], size[0])
+    y = np.linspace(0, size[1], size[1])
+    z = np.linspace(0, size[2], size[2])
+    x, y, z = np.meshgrid(x, y, z)
+
+    pos = np.empty(x.shape + (3,))
+    pos[:, :, :, 0] = x
+    pos[:, :, :, 1] = y
+    pos[:, :, :, 2] = z
+
+    F = multivariate_normal(points, sigma)
+    w = F.pdf(pos)
+
+    w = w / np.max(w)
+
+    return w
+
+if __name__ == "__main__":
+    import nibabel as nib
+    points = (100, 100, 20)
+    heatmap = create_gaussian_heatmap(points)
+    print(np.max(heatmap))
+
+    # For debug
+    res = nib.Nifti1Image(heatmap, np.eye(4))
+    nib.save(res, '%s' % "test")
